@@ -1,0 +1,56 @@
+version: '3' #このComposeファイルのバージョン
+services: #起動するサービス（コンテナ）の設定定義
+  mysql: #「mysql」という名前でサービスを定義　以下同じ
+    platform: linux/x86_64 # M1チップ対応のため追記
+    image: mysql:5.7 # 使用するイメージ
+    volumes: #データのマウント設定
+      - "./data/mysql/db:/var/lib/mysql" #データのマウント設定 左辺がローカル、右辺がMySQLのコンテナ
+    environment: #環境変数の設定
+      MYSQL_ROOT_PASSWORD: password #MYSQL_ROOT_PASSWORDという環境変数にpasswordという値を入れる
+      TZ: "Asia/Tokyo" #TZという環境変数にAsia/Tokyoを入れる
+    ports: #ポート設定
+      - "3306:3306" #左辺がローカル、右辺がコンテナのポート localostの3306番ポートあてにアクセスすると、コンテナの3306番ポートあてに転送
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=password
+    ports:
+       - "8080:80"
+    volumes:
+       - /sessions #紐付けしない
+  nginx:
+    image: "nginx"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./data/nginx/conf:/etc/nginx/"
+      - "./data/htdocs:/var/www/html"
+    environment:
+      TZ: "Asia/Tokyo"
+    depends_on:
+      - phpfpm
+  phpfpm:
+    image: php:5.6-fpm
+    build: ./data/phpfpm/ #パスにあるDockerfileを実行
+    environment:
+      TZ: "Asia/Tokyo"
+    volumes:
+      - "./data/htdocs:/var/www/html"
+    depends_on:
+      - mysql
+  host:
+    build: ./data/htdocs
+    environment:
+      TZ: "Asia/Tokyo"
+      PRJ: "cakephp3"
+    volumes:
+      - "./data/htdocs:/root"
+    ports:
+      - "8765:80"
+    depends_on:
+      - mysql
+      - phpfpm
